@@ -69,7 +69,7 @@ The other settings can usually stay as shown in `.env.example`:
 | `PORT` | Server port; defaults to `5001` |
 | `NODE_ENV` | Run mode; defaults to `development` |
 | `JWT_EXPIRES_IN` | How long a login token lasts; defaults to `7d` |
-| `CLIENT_URL` | Frontend address allowed to call the API; defaults to `http://localhost:5173` |
+| `CLIENT_URL` | Comma-separated frontend origins allowed to call the API; defaults to `http://localhost:5173` and `https://ai-powered-personalized-doubt-solvi-puce.vercel.app` |
 | `AI_SERVICE_URL` | Leave blank to use the built-in mock AI |
 | `AI_SERVICE_KEY` | Optional key for the configured AI service |
 

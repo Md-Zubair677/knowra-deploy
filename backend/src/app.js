@@ -4,7 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const swaggerUi = require('swagger-ui-express');
 
-const { clientUrl } = require('./config/env');
+const { clientUrls } = require('./config/env');
 const swaggerSpec = require('./docs/swagger');
 const routes = require('./routes');
 const notFound = require('./middlewares/notFound');
@@ -15,7 +15,7 @@ const { sanitizeMongoInput } = require('./middlewares/sanitizeMongoInput');
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: clientUrl }));
+app.use(cors({ origin: clientUrls }));
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
 

@@ -54,15 +54,20 @@ describe('request hardening', () => {
   });
 
   test('restricts CORS and sends Helmet security headers', async () => {
-    const allowed = await request(app)
+    const local = await request(app)
       .get('/api/health')
       .set('Origin', 'http://localhost:5173');
+    const deployed = await request(app)
+      .get('/api/health')
+      .set('Origin', 'https://ai-powered-personalized-doubt-solvi-puce.vercel.app');
     const blocked = await request(app)
       .get('/api/health')
       .set('Origin', 'https://untrusted.example');
 
-    expect(allowed.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect(local.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect(deployed.headers['access-control-allow-origin'])
+      .toBe('https://ai-powered-personalized-doubt-solvi-puce.vercel.app');
     expect(blocked.headers['access-control-allow-origin']).not.toBe('https://untrusted.example');
-    expect(allowed.headers['x-content-type-options']).toBe('nosniff');
+    expect(local.headers['x-content-type-options']).toBe('nosniff');
   });
 });
