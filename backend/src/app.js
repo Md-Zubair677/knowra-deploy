@@ -10,6 +10,7 @@ const routes = require('./routes');
 const notFound = require('./middlewares/notFound');
 const errorHandler = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/rateLimiter');
+const { sanitizeMongoInput } = require('./middlewares/sanitizeMongoInput');
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(morgan('dev'));
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api', generalLimiter);
+app.use('/api', sanitizeMongoInput);
 app.use('/api', routes);
 
 app.use(notFound);

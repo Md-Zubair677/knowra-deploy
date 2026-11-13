@@ -2,8 +2,38 @@ const mongoose = require('mongoose');
 const ApiError = require('../utils/ApiError');
 const Classroom = require('../models/Classroom');
 const ConceptGap = require('../models/ConceptGap');
+const aiService = require('./ai.service');
+const logger = require('../utils/logger');
 
 const isValidId = (id) => /^[a-f\d]{24}$/i.test(id);
+const severityWeights = { low: 1, medium: 2, high: 3 };
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const rankLearningGaps = (gaps, now, limit) => {
+  const nowMs = new Date(now).getTime();
+
+  return gaps.map((gap) => {
+    const lastSeenMs = new Date(gap.updatedAt || gap.createdAt).getTime();
+    const daysSinceLastSeen = Math.max(0, (nowMs - lastSeenMs) / MILLISECONDS_PER_DAY);
+    const severityWeight = severityWeights[gap.severity];
+    const priority = severityWeight
+      * gap.occurrences
+      / (1 + daysSinceLastSeen / 14);
+
+    return {
+      concept: gap.concept,
+      severity: gap.severity,
+      occurrences: gap.occurrences,
+      daysSinceLastSeen,
+      priority,
+    };
+  })
+    .sort((left, right) =>
+      right.priority - left.priority
+      || left.concept.localeCompare(right.concept)
+    )
+    .slice(0, limit);
+};
 
 const aggregateGaps = (filter) => ConceptGap.aggregate([
   { $match: filter },
@@ -51,7 +81,7 @@ const recordDoubtGaps = async (doubt, gaps) => {
   const severityRank = { low: 1, medium: 2, high: 3 };
 
   for (const { concept, severity } of gaps) {
-    const displayName = concept.trim();
+    const displayName = concept.replace(/\s+/g, ' ').trim().slice(0, 80).trim();
     const key = displayName.toLowerCase();
     const current = uniqueGaps.get(key);
     if (!current) {
@@ -167,4 +197,64 @@ const getStudentGaps = async (requesterId, requesterRole, studentId) => {
   return aggregateGaps(filter);
 };
 
-module.exports = { recordDoubtGaps, getClassroomGaps, getStudentGaps };
+const getStudentLearningPlan = async (requesterId, requesterRole, studentId, limit) => {
+  if (!isValidId(studentId)) throw new ApiError(400, 'Invalid student ID');
+
+  let filter = { student: new mongoose.Types.ObjectId(studentId) };
+
+  if (requesterRole === 'student') {
+    if (requesterId.toLowerCase() !== studentId.toLowerCase()) {
+      throw new ApiError(403, 'You do not have permission to access this student');
+    }
+  } else if (requesterRole === 'teacher') {
+    const classrooms = await Classroom.find({
+      teacher: requesterId,
+      students: studentId,
+    }).select('_id');
+
+    if (classrooms.length === 0) {
+      throw new ApiError(403, 'You do not have permission to access this student');
+    }
+
+    filter = {
+      ...filter,
+      classroom: { $in: classrooms.map(({ _id }) => _id) },
+    };
+  } else {
+    throw new ApiError(403, 'You do not have permission to access student learning plans');
+  }
+
+  const gaps = await ConceptGap.find(filter)
+    .select('concept severity occurrences updatedAt createdAt')
+    .lean();
+  const ranked = rankLearningGaps(gaps, new Date(), limit);
+  const request = {
+    gaps: ranked.map((gap) => ({
+      concept: gap.concept,
+      severity: gap.severity,
+      occurrences: gap.occurrences,
+      days_since_last_seen: gap.daysSinceLastSeen,
+    })),
+    limit,
+  };
+
+  try {
+    const generatedPlan = await aiService.generateLearningPlan(request);
+    return {
+      ranked,
+      plan: generatedPlan ? generatedPlan.plan : [],
+      aiAvailable: Boolean(generatedPlan),
+    };
+  } catch (error) {
+    logger.warn('AI learning plan unavailable:', error.message);
+    return { ranked, plan: [], aiAvailable: false };
+  }
+};
+
+module.exports = {
+  recordDoubtGaps,
+  getClassroomGaps,
+  getStudentGaps,
+  rankLearningGaps,
+  getStudentLearningPlan,
+};

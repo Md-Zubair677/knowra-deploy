@@ -26,6 +26,8 @@ describe('authentication routes', () => {
 
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
+    expect(response.body.data._id).toBeDefined();
+    expect(response.body.data).not.toHaveProperty('id');
     expect(response.body.data.email).toBe(credentials.email);
     expect(response.body.data).not.toHaveProperty('password');
 
@@ -67,6 +69,8 @@ describe('authentication routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.data.token).toEqual(expect.any(String));
+    expect(response.body.data.user._id).toBeDefined();
+    expect(response.body.data.user).not.toHaveProperty('id');
     expect(response.body.data.user.email).toBe(credentials.email);
     expect(response.body.data.user).not.toHaveProperty('password');
   });

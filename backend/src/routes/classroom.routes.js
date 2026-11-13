@@ -3,6 +3,8 @@ const classroomController = require('../controllers/classroom.controller');
 const authenticate = require('../middlewares/auth');
 const restrictTo = require('../middlewares/role');
 const validate = require('../middlewares/validate');
+const { sanitizeMongoParams } = require('../middlewares/sanitizeMongoInput');
+const { emptyBodySchema } = require('../validations/common.validation');
 const {
   createClassroomSchema,
   joinClassroomSchema,
@@ -10,6 +12,7 @@ const {
 } = require('../validations/classroom.validation');
 
 const router = express.Router();
+router.param('id', sanitizeMongoParams);
 
 /**
  * @swagger
@@ -89,6 +92,132 @@ router.post(
  *       401: { description: Authentication required }
  */
 router.get('/', authenticate, classroomController.getClassrooms);
+
+/**
+ * @swagger
+ * /classrooms/{id}/insights:
+ *   get:
+ *     summary: Get aggregate learning insights for an owned classroom
+ *     tags: [Classrooms]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, pattern: '^[a-fA-F0-9]{24}$' }
+ *     responses:
+ *       200:
+ *         description: Doubt, student, concept-gap, and attention metrics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [success, message, data]
+ *               properties:
+ *                 success: { type: boolean, enum: [true] }
+ *                 message: { type: string }
+ *                 data: { $ref: '#/components/schemas/Insights' }
+ *       400: { description: Invalid classroom ID }
+ *       401: { description: Authentication required }
+ *       403: { description: Caller does not teach this classroom }
+ *       404: { description: Classroom not found }
+ */
+router.get(
+  '/:id/insights',
+  authenticate,
+  restrictTo('teacher'),
+  validate(classroomIdParamSchema, 'params'),
+  classroomController.getClassroomInsights
+);
+
+/**
+ * @swagger
+ * /classrooms/{id}/students:
+ *   get:
+ *     summary: List students enrolled in an owned classroom
+ *     tags: [Classrooms]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, pattern: '^[a-fA-F0-9]{24}$' }
+ *     responses:
+ *       200: { description: Student names, emails, and classroom doubt counts }
+ *       400: { description: Invalid classroom ID }
+ *       401: { description: Authentication required }
+ *       403: { description: Caller does not teach this classroom }
+ *       404: { description: Classroom not found }
+ */
+router.get(
+  '/:id/students',
+  authenticate,
+  restrictTo('teacher'),
+  validate(classroomIdParamSchema, 'params'),
+  classroomController.getClassroomStudents
+);
+
+/**
+ * @swagger
+ * /classrooms/{id}/leave:
+ *   delete:
+ *     summary: Leave a joined classroom (students only)
+ *     tags: [Classrooms]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, pattern: '^[a-fA-F0-9]{24}$' }
+ *     responses:
+ *       200: { description: Student removed from the classroom; past doubts are retained }
+ *       400: { description: Invalid classroom ID }
+ *       401: { description: Authentication required }
+ *       403: { description: Students only }
+ *       404: { description: Classroom not found }
+ *       409: { description: Student has not joined the classroom }
+ */
+router.delete(
+  '/:id/leave',
+  authenticate,
+  restrictTo('student'),
+  validate(classroomIdParamSchema, 'params'),
+  validate(emptyBodySchema),
+  classroomController.leaveClassroom
+);
+
+/**
+ * @swagger
+ * /classrooms/{id}/regenerate-code:
+ *   post:
+ *     summary: Generate a new unique classroom join code (owner teacher only)
+ *     tags: [Classrooms]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, pattern: '^[a-fA-F0-9]{24}$' }
+ *     responses:
+ *       200: { description: Classroom returned with its new join code }
+ *       400: { description: Invalid classroom ID }
+ *       401: { description: Authentication required }
+ *       403: { description: Caller does not teach this classroom }
+ *       404: { description: Classroom not found }
+ *       503: { description: Could not generate a unique join code }
+ */
+router.post(
+  '/:id/regenerate-code',
+  authenticate,
+  restrictTo('teacher'),
+  validate(classroomIdParamSchema, 'params'),
+  validate(emptyBodySchema),
+  classroomController.regenerateJoinCode
+);
 
 /**
  * @swagger

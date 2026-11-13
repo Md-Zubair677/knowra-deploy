@@ -1,13 +1,15 @@
 const mongoose = require('mongoose');
+const request = require('supertest');
 const {
   connectTestDb,
   clearTestDb,
   disconnectTestDb,
 } = require('./testDb');
-const { createUser, createClassroom } = require('./helpers');
+const { createUser, createClassroom, tokenFor } = require('./helpers');
 const Doubt = require('../src/models/Doubt');
 const ConceptGap = require('../src/models/ConceptGap');
 const gapService = require('../src/services/gap.service');
+const app = require('../src/app');
 
 beforeAll(connectTestDb);
 afterEach(clearTestDb);
@@ -71,6 +73,34 @@ describe('gap service', () => {
     ]);
   });
 
+  test('collapses concept whitespace for matching and caps stored names at 80 characters', async () => {
+    const teacher = await createUser({ role: 'teacher' });
+    const student = await createUser();
+    const classroom = await createClassroom(teacher, [student]);
+    const firstDoubt = await makeDoubt(student, classroom, 'Optics');
+    const secondDoubt = await makeDoubt(student, classroom, 'Optics');
+    const longConcept = 'Refraction '.repeat(12);
+
+    await gapService.recordDoubtGaps(firstDoubt, [
+      { concept: 'Refractive index', severity: 'low' },
+      { concept: longConcept, severity: 'medium' },
+    ]);
+    await gapService.recordDoubtGaps(secondDoubt, [
+      { concept: '  refractive   index ', severity: 'high' },
+    ]);
+
+    const gaps = await ConceptGap.find({ student: student._id }).sort({ conceptKey: 1 });
+    expect(gaps).toHaveLength(2);
+    expect(gaps.find((gap) => gap.conceptKey === 'refractive index')).toMatchObject({
+      concept: 'Refractive index',
+      occurrences: 2,
+      severity: 'high',
+    });
+    const cappedGap = gaps.find((gap) => gap.conceptKey.startsWith('refraction'));
+    expect(cappedGap.concept).toHaveLength(80);
+    expect(cappedGap.conceptKey).toHaveLength(80);
+  });
+
   test('allows authorized gap reports and rejects unrelated users', async () => {
     const teacher = await createUser({ role: 'teacher' });
     const student = await createUser();
@@ -128,5 +158,20 @@ describe('gap service', () => {
         'not-an-object-id'
       )
     ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  test('validates ObjectId path parameters on gap routes', async () => {
+    const teacher = await createUser({ role: 'teacher' });
+    const authorization = `Bearer ${tokenFor(teacher)}`;
+
+    const classroomResponse = await request(app)
+      .get('/api/classrooms/not-an-object-id/gaps')
+      .set('Authorization', authorization);
+    const studentResponse = await request(app)
+      .get('/api/students/not-an-object-id/gaps')
+      .set('Authorization', authorization);
+
+    expect(classroomResponse.status).toBe(400);
+    expect(studentResponse.status).toBe(400);
   });
 });

@@ -4,12 +4,15 @@ const authenticate = require('../middlewares/auth');
 const restrictTo = require('../middlewares/role');
 const { doubtCreationLimiter } = require('../middlewares/rateLimiter');
 const validate = require('../middlewares/validate');
+const { emptyBodySchema } = require('../validations/common.validation');
+const { sanitizeMongoParams } = require('../middlewares/sanitizeMongoInput');
 const {
   createDoubtSchema,
   doubtIdParamSchema,
 } = require('../validations/doubt.validation');
 
 const router = express.Router();
+router.param('id', sanitizeMongoParams);
 
 /**
  * @swagger
@@ -131,6 +134,7 @@ router.post(
   authenticate,
   restrictTo('student'),
   validate(doubtIdParamSchema, 'params'),
+  validate(emptyBodySchema),
   doubtController.retryDoubt
 );
 

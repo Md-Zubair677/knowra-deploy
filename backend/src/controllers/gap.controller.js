@@ -16,4 +16,14 @@ const getStudentGaps = asyncHandler(async (req, res) => {
   sendResponse(res, 200, 'Student concept gaps retrieved successfully', gaps);
 });
 
-module.exports = { getClassroomGaps, getStudentGaps };
+const getStudentLearningPlan = asyncHandler(async (req, res) => {
+  const learningPlan = await gapService.getStudentLearningPlan(
+    req.user.id,
+    req.user.role,
+    req.params.id,
+    req.query.limit
+  );
+  sendResponse(res, 200, 'Student learning plan retrieved successfully', learningPlan);
+});
+
+module.exports = { getClassroomGaps, getStudentGaps, getStudentLearningPlan };

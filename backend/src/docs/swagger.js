@@ -21,9 +21,9 @@ const options = {
       schemas: {
         User: {
           type: 'object',
-          required: ['id', 'name', 'email', 'role'],
+          required: ['_id', 'name', 'email', 'role'],
           properties: {
-            id: { type: 'string', readOnly: true },
+            _id: { type: 'string', readOnly: true },
             name: { type: 'string', minLength: 2, maxLength: 80 },
             email: { type: 'string', format: 'email' },
             role: { type: 'string', enum: ['student', 'teacher'] },
@@ -95,6 +95,93 @@ const options = {
             occurrences: { type: 'integer', minimum: 1 },
             createdAt: { type: 'string', format: 'date-time', readOnly: true },
             updatedAt: { type: 'string', format: 'date-time', readOnly: true },
+          },
+        },
+        LearningPlan: {
+          type: 'object',
+          required: ['ranked', 'plan', 'aiAvailable'],
+          properties: {
+            ranked: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: [
+                  'concept',
+                  'severity',
+                  'occurrences',
+                  'daysSinceLastSeen',
+                  'priority',
+                ],
+                properties: {
+                  concept: { type: 'string', maxLength: 80 },
+                  severity: { type: 'string', enum: ['low', 'medium', 'high'] },
+                  occurrences: { type: 'integer', minimum: 1 },
+                  daysSinceLastSeen: { type: 'number', minimum: 0 },
+                  priority: { type: 'number', minimum: 0 },
+                },
+              },
+            },
+            plan: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['concept', 'tip', 'practice_question'],
+                properties: {
+                  concept: { type: 'string', maxLength: 80 },
+                  tip: { type: 'string' },
+                  practice_question: { type: 'string' },
+                },
+              },
+            },
+            aiAvailable: { type: 'boolean' },
+          },
+        },
+        Insights: {
+          type: 'object',
+          required: [
+            'totalDoubts',
+            'doubtsByStatus',
+            'activeStudents',
+            'topGaps',
+            'studentsNeedingAttention',
+          ],
+          properties: {
+            totalDoubts: { type: 'integer', minimum: 0 },
+            doubtsByStatus: {
+              type: 'object',
+              required: ['pending', 'answered', 'failed'],
+              properties: {
+                pending: { type: 'integer', minimum: 0 },
+                answered: { type: 'integer', minimum: 0 },
+                failed: { type: 'integer', minimum: 0 },
+              },
+            },
+            activeStudents: { type: 'integer', minimum: 0 },
+            topGaps: {
+              type: 'array',
+              maxItems: 5,
+              items: {
+                type: 'object',
+                required: ['concept', 'totalOccurrences', 'studentCount'],
+                properties: {
+                  concept: { type: 'string', maxLength: 80 },
+                  totalOccurrences: { type: 'integer', minimum: 0 },
+                  studentCount: { type: 'integer', minimum: 0 },
+                },
+              },
+            },
+            studentsNeedingAttention: {
+              type: 'array',
+              maxItems: 5,
+              items: {
+                type: 'object',
+                required: ['name', 'score'],
+                properties: {
+                  name: { type: 'string' },
+                  score: { type: 'number', minimum: 0 },
+                },
+              },
+            },
           },
         },
         ApiSuccess: {

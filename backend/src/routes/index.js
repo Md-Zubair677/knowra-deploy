@@ -1,4 +1,5 @@
 const express = require('express');
+const healthController = require('../controllers/health.controller');
 
 const router = express.Router();
 
@@ -13,11 +14,26 @@ router.use('/', require('./gap.routes'));
  *   get:
  *     summary: Check API health
  *     tags: [Health]
+ *     security: []
  *     responses:
- *       200: { description: API is running }
+ *       200:
+ *         description: API, database, and AI-service health
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [success, message, data]
+ *               properties:
+ *                 success: { type: boolean, enum: [true] }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   required: [status, db, aiService]
+ *                   properties:
+ *                     status: { type: string, enum: [ok, degraded] }
+ *                     db: { type: string, enum: [up, down] }
+ *                     aiService: { type: string, enum: [mock, up, down] }
  */
-router.get('/health', (req, res) => {
-  res.json({ success: true, message: 'API is running', data: null });
-});
+router.get('/health', healthController.getHealth);
 
 module.exports = router;

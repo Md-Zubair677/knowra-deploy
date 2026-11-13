@@ -13,6 +13,7 @@ const router = express.Router();
  *   post:
  *     summary: Register a student or teacher account
  *     tags: [Auth]
+ *     security: []
  *     requestBody:
  *       required: true
  *       content:
@@ -38,6 +39,7 @@ router.post('/register', validate(registerSchema), authController.register);
  *   post:
  *     summary: Log in and receive a JWT
  *     tags: [Auth]
+ *     security: []
  *     requestBody:
  *       required: true
  *       content:
